@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Interval Tracker — Mobile v6.2 (Compact + Controls)</title>
+<style>
+:root{
+  --bg:#0b0d10; --panel:#12151b; --line:#222837;
+  --text:#e7ebf2; --muted:#9aa6bd; --accent:#ffd166;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#0b0d10;color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+header{position:sticky;top:0;z-index:40;background:rgba(11,13,16,.95);backdrop-filter:saturate(120%) blur(6px);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+h1{font-size:16px;margin:0}
+.badge{padding:2px 8px;border-radius:999px;background:#0e1218;border:1px solid #263042;color:#b9c5da;font-size:11px;white-space:nowrap}
+.container{max-width:720px;margin:0 auto;padding:10px 10px 180px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+label{font-size:12px;color:var(--muted)}
+input,select,button{border:1px solid #263042;background:#0e1218;color:var(--text);padding:10px;border-radius:12px;font-size:16px}
+input[type="number"]{width:90px}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#111;border-color:#b7923a}
+button.ghost{background:transparent}
+
+/* Cards — compact, no left gutter */
+.list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.card{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #263042;border-radius:12px;background:#0d1218}
+.badge-round{align-self:flex-start;font-size:12px;color:#c3cee3;border:1px solid #2a3450;background:#0e1218;border-radius:999px;padding:3px 8px}
+.finish{display:flex;gap:6px;align-items:center}
+.mminput{width:96px;max-width:46%;text-align:center;font-variant-numeric:tabular-nums}
+.sep{color:#63708a}
+/* Stat boxes: auto-fit for breathing room */
+.meta{display:grid;grid-template-columns:repeat(auto-fit, minmax(132px, 1fr));gap:10px}
+.meta .box{padding:10px;border:1px solid #263042;border-radius:10px;background:#0e1218;text-align:center}
+.meta .label{font-size:11px;color:#96a3be}
+.meta .val{font-variant-numeric:tabular-nums;font-size:17px;font-weight:700;margin-top:2px}
+
+/* Bottom actions */
+.footer-actions{position:fixed;left:10px;right:10px;bottom:12px;z-index:60;display:flex;gap:8px;justify-content:space-between;pointer-events:none}
+.footer-actions > *{pointer-events:auto}
+.small{font-size:12px;color:#9aa6bd}
+
+/* Bottom Collapsible Scoreboard */
+#scorebar{
+  position:fixed; left:0; right:0; bottom:0; z-index:70;
+  will-change: transform; transition: transform .18s ease, box-shadow .18s ease;
+  padding:10px 12px env(safe-area-inset-bottom);
+  background:rgba(14,17,23,.96);
+  border-top:1px solid #2a3142; box-shadow: 0 -8px 24px rgba(0,0,0,.35);
+}
+#scorebar.collapsed{ transform: translateY(calc(100% - 44px)); }
+.scorewrap{
+  max-width:720px; margin:0 auto;
+  display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+}
+.scorecard{
+  border:1px solid #2a3142; border-radius:14px; padding:10px;
+  background: radial-gradient(900px 300px at 50% -20%, rgba(255,209,102,.10), transparent 70%), #12151b;
+}
+.score-round{font-size:12px;color:#9aa6bd;text-transform:uppercase;letter-spacing:.3px}
+.score-value{font-variant-numeric:tabular-nums;font-size: clamp(32px, 9.5vw, 60px);font-weight:900;line-height:1.05;letter-spacing:.5px;margin-top:2px}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.pill{padding:6px 10px;border-radius:999px;background:#0d1218;border:1px solid #263042;font-size:12px;color:#c3cee3;white-space:nowrap}
+
+#toggleBtn{
+  align-self:flex-start; display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-radius:10px; border:1px dashed #2e3a52; background:#0e1218; color:#c9d4ea; font-size:14px;
+}
+.chev{display:inline-block; transition: transform .18s ease}
+#scorebar.collapsed .chev{ transform: rotate(180deg); }
+
+/* Micro-phones tweaks */
+@media (max-width:380px){
+  .mminput{width:86px}
+  .meta{grid-template-columns:repeat(auto-fit, minmax(120px, 1fr))}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Interval Tracker</h1>
+  <span class="badge">Mobile • Compact + Controls</span>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <div class="row">
+          <label>Rounds</label>
+          <input id="rounds" type="number" min="1" value="8" inputmode="numeric" />
+        </div>
+        <div class="row">
+          <label>Work:Rest</label>
+          <select id="ratio">
+            <option value="1:1">1:1</option>
+            <option value="1:2">1:2</option>
+            <option value="2:1">2:1</option>
+            <option value="3:1">3:1</option>
+            <option value="1:3">1:3</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Start offset (mm:ss)</label>
+          <input id="startOffset" type="text" placeholder="00:00" value="00:00" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="row">
+        <button id="apply" class="primary">Apply</button>
+        <button id="clear" class="ghost">Clear</button>
+      </div>
+    </div>
+
+    <div id="list" class="list"></div>
+  </div>
+</div>
+
+<div class="footer-actions">
+  <button id="copyScore">Copy latest score</button>
+  <button id="exportCsv" class="ghost">Export CSV</button>
+</div>
+
+<!-- Bottom Collapsible Scoreboard -->
+<div id="scorebar" class="collapsed" role="region" aria-label="Round scoreboard" aria-live="polite" aria-atomic="true">
+  <div class="scorewrap">
+    <div class="scorecard">
+      <div id="scoreRound" class="score-round">Round —</div>
+      <div id="scoreValue" class="score-value">00:00</div>
+      <div class="pills">
+        <span class="pill">Next start: <b id="scoreNext">--:--</b></span>
+        <span class="pill">Finish: <b id="scoreFinish">--:--</b></span>
+        <span class="pill">Ratio: <b id="scoreRatio">1:1</b></span>
+      </div>
+    </div>
+    <button id="toggleBtn" aria-expanded="false"><span class="chev">⌃</span> <span id="toggleText">Show</span></button>
+  </div>
+</div>
+
+<script>
+// ====== Time utils ======
+const pad = (n)=> String(n).padStart(2,'0');
+function parseClock(str){
+  if(!str) return null;
+  const parts = str.split(':').map(x=>x.trim());
+  if(parts.some(p => p === '' || isNaN(p))) return null;
+  let s = 0;
+  if(parts.length === 1){ s = parseInt(parts[0],10); } 
+  else if(parts.length === 2){ s = parseInt(parts[0],10)*60 + parseInt(parts[1],10); }
+  else if(parts.length >= 3){ s = parseInt(parts[0],10)*3600 + parseInt(parts[1],10)*60 + parseInt(parts[2],10); }
+  return isNaN(s) ? null : s;
+}
+function fmt(sec){
+  if(sec == null || !isFinite(sec)) return '--:--';
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return (h>0? (h+':'+pad(m)+':'+pad(s)) : (pad(m)+':'+pad(s)));
+}
+function mmssToSeconds(mm, ss){
+  const m = parseInt(mm,10); const s = parseInt(ss,10);
+  if(isNaN(m) && isNaN(s)) return null;
+  const M = isNaN(m) ? 0 : Math.max(0,m);
+  const S = isNaN(s) ? 0 : Math.max(0, Math.min(59, s));
+  return M*60 + S;
+}
+function ratioToNumbers(str){
+  const [w,r] = str.split(':').map(x=>parseInt(x,10));
+  return {w: (isNaN(w)?1:w), r: (isNaN(r)?1:r)};
+}
+
+// ====== Elements ======
+const $rounds = document.getElementById('rounds');
+const $ratio = document.getElementById('ratio');
+const $startOffset = document.getElementById('startOffset');
+const $apply = document.getElementById('apply');
+const $clear = document.getElementById('clear');
+const $list = document.getElementById('list');
+const $copyScore = document.getElementById('copyScore');
+const $exportCsv = document.getElementById('exportCsv');
+
+const $scorebar = document.getElementById('scorebar');
+const $toggleBtn = document.getElementById('toggleBtn');
+const $toggleText = document.getElementById('toggleText');
+const $scoreRound = document.getElementById('scoreRound');
+const $scoreValue = document.getElementById('scoreValue');
+const $scoreNext = document.getElementById('scoreNext');
+const $scoreFinish = document.getElementById('scoreFinish');
+const $scoreRatio = document.getElementById('scoreRatio');
+
+// Helpers for per-row inputs
+function mm(i){ return document.querySelector(`input[data-field="mm"][data-i="${i}"]`); }
+function ss(i){ return document.querySelector(`input[data-field="ss"][data-i="${i}"]`); }
+
+// Build rows
+function buildList(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  $list.innerHTML = '';
+  for(let i=1;i<=n;i++){
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <span class="badge-round">Round ${i}</span>
+      <div class="finish">
+        <input class="mminput" inputmode="numeric" pattern="\\d*" maxlength="3" placeholder="MM" data-field="mm" data-i="${i}" />
+        <span class="sep">:</span>
+        <input class="mminput" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="SS" data-field="ss" data-i="${i}" />
+      </div>
+      <div class="meta">
+        <div class="box"><div class="label">Score</div><div class="val" data-field="score" data-i="${i}">--:--</div></div>
+        <div class="box"><div class="label">Prescribed Rest</div><div class="val" data-field="rest" data-i="${i}">--:--</div></div>
+        <div class="box"><div class="label">Next Start</div><div class="val" data-field="next" data-i="${i}">--:--</div></div>
+      </div>
+    `;
+    card.addEventListener('click', ()=> spotlight(i));
+    $list.appendChild(card);
+  }
+  // Attach input behavior
+  $list.querySelectorAll('input[data-field="mm"]').forEach(inp=>{
+    inp.addEventListener('input', onMMInput);
+    inp.addEventListener('keydown', onMMKey);
+  });
+  $list.querySelectorAll('input[data-field="ss"]').forEach(inp=>{
+    inp.addEventListener('input', onSSInput);
+    inp.addEventListener('keydown', onSSKey);
+    inp.addEventListener('blur', ()=> padSecondsOnBlur(inp));
+  });
+  persistState();
+}
+
+// Input behaviors (SS typing fix)
+function clampSecondsRaw(input){
+  let v = input.value.replace(/\\D/g,'').slice(0,2);
+  input.value = v;
+  return v.length;
+}
+function padSecondsOnBlur(input){
+  if(input.value === '') return;
+  let num = parseInt(input.value,10);
+  if(isNaN(num)) { input.value = ''; return; }
+  num = Math.max(0, Math.min(59, num));
+  input.value = pad(num);
+}
+function onMMInput(e){
+  e.target.value = e.target.value.replace(/\\D/g,'');
+  if(e.target.value.length >= 2){
+    const i = parseInt(e.target.dataset.i,10);
+    ss(i)?.focus(); ss(i)?.select();
+  }
+  recalc();
+}
+function onMMKey(e){
+  if(e.key === ':' || e.key === 'Enter' || e.key === 'ArrowRight'){
+    const i = parseInt(e.target.dataset.i,10);
+    ss(i)?.focus(); ss(i)?.select(); e.preventDefault();
+  }
+}
+function onSSInput(e){
+  const len = clampSecondsRaw(e.target);
+  if(len === 2){
+    const i = parseInt(e.target.dataset.i,10);
+    const nextMM = mm(i+1);
+    if(nextMM){ nextMM.focus(); nextMM.select(); }
+  }
+  recalc();
+}
+function onSSKey(e){
+  if(e.key === 'ArrowLeft'){
+    const i = parseInt(e.target.dataset.i,10);
+    mm(i)?.focus(); mm(i)?.select(); e.preventDefault();
+  }
+  if(e.key === 'Enter'){
+    const i = parseInt(e.target.dataset.i,10);
+    const nextMM = mm(i+1);
+    if(nextMM){ nextMM.focus(); nextMM.select(); }
+  }
+}
+
+// Calculations
+let lastSpotlightIndex = null;
+function recalc(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const startOffsetSec = parseClock($startOffset.value) ?? 0;
+  const {w:wr, r:rr} = ratioToNumbers($ratio.value);
+
+  let curStart = startOffsetSec;
+  let latestCompleted = null;
+
+  for(let i=1;i<=n;i++){
+    const mVal = mm(i)?.value;
+    const sVal = ss(i)?.value;
+    const scoreEl = document.querySelector(`.val[data-field="score"][data-i="${i}"]`);
+    const restEl = document.querySelector(`.val[data-field="rest"][data-i="${i}"]`);
+    const nextEl = document.querySelector(`.val[data-field="next"][data-i="${i}"]`);
+
+    const finish = mmssToSeconds(mVal, sVal);
+    let score=null, rest=null, next=null;
+    const hasSome = (mVal && mVal.trim()!=='') || (sVal && sVal.trim()!=='');
+
+    if(hasSome && finish!=null && finish>=curStart){
+      score = finish - curStart;
+      const ratio = rr / wr;
+      rest = Math.max(0, score * ratio);
+      next = finish + rest;
+      scoreEl.textContent = fmt(score);
+      restEl.textContent = fmt(rest);
+      nextEl.textContent = fmt(next);
+      curStart = next;
+      latestCompleted = {i, score, next, finish};
+    }else{
+      scoreEl.textContent = '--:--';
+      restEl.textContent = '--:--';
+      nextEl.textContent = '--:--';
+    }
+  }
+
+  if(latestCompleted){
+    spotlight(latestCompleted.i);
+  }else if(lastSpotlightIndex==null){
+    $scoreRound.textContent = 'Round 1';
+    $scoreValue.textContent = '00:00';
+    $scoreNext.textContent = fmt(startOffsetSec);
+    $scoreFinish.textContent = '--:--';
+    $scoreRatio.textContent = $ratio.value;
+  }
+
+  updatePlaceholders();
+  persistState();
+}
+
+function updatePlaceholders(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const startOffsetSec = parseClock($startOffset.value) ?? 0;
+  const {w:wr, r:rr} = ratioToNumbers($ratio.value);
+  let curStart = startOffsetSec;
+
+  for(let i=1;i<=n;i++){
+    const mmInp = mm(i);
+    const ssInp = ss(i);
+    const fin = mmssToSeconds(mmInp?.value, ssInp?.value);
+    if(fin!=null && fin>=curStart){
+      const score = fin - curStart;
+      const rest = Math.max(0, score * (rr/wr));
+      curStart = fin + rest; // next start
+    }else{
+      if(mmInp && ssInp && (!mmInp.value && !ssInp.value)){
+        const m = Math.floor(curStart/60), s = curStart%60;
+        mmInp.placeholder = String(m);
+        ssInp.placeholder = pad(s);
+      }
+    }
+  }
+}
+
+function spotlight(i){
+  lastSpotlightIndex = i;
+  const m = mm(i)?.value || '0';
+  const s = ss(i)?.value || '00';
+  const finSec = mmssToSeconds(m,s);
+  const scoreTxt = document.querySelector(`.val[data-field="score"][data-i="${i}"]`)?.textContent || '00:00';
+  const nextTxt = document.querySelector(`.val[data-field="next"][data-i="${i}"]`)?.textContent || '--:--';
+  const finTxt = (finSec==null) ? '--:--' : fmt(finSec);
+  $scoreRound.textContent = `Round ${i}`;
+  $scoreValue.textContent = scoreTxt;
+  $scoreNext.textContent = nextTxt;
+  $scoreFinish.textContent = finTxt;
+  $scoreRatio.textContent = $ratio.value;
+}
+
+// Actions
+$apply.onclick = ()=>{ buildList(); recalc(); };
+$clear.onclick = ()=>{
+  document.querySelectorAll('input[data-field="mm"], input[data-field="ss"]').forEach(i=> i.value='');
+  recalc();
+};
+$ratio.addEventListener('input', recalc);
+$rounds.addEventListener('input', ()=>{ buildList(); recalc(); });
+$startOffset.addEventListener('input', recalc);
+
+// Export + copy (CSV keeps 'Work' header for app compatibility)
+$copyScore.onclick = async ()=>{
+  const text = $scoreValue.textContent.trim();
+  try{ await navigator.clipboard.writeText(text); $copyScore.textContent='Copied!'; setTimeout(()=> $copyScore.textContent='Copy latest score', 1200);}catch(e){ $copyScore.textContent='Press Ctrl/Cmd+C'; setTimeout(()=> $copyScore.textContent='Copy latest score', 1500);}
+};
+$exportCsv.onclick = ()=>{
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const lines = [['Round','Finish','Work','Prescribed Rest','Next Start']];
+  for(let i=1;i<=n;i++){
+    const m = mm(i)?.value || '';
+    const s = ss(i)?.value || '';
+    const finSec = mmssToSeconds(m,s);
+    const fin = finSec==null ? '' : fmt(finSec);
+    const w = document.querySelector(`.val[data-field="score"][data-i="${i}"]`)?.textContent || '';
+    const r = document.querySelector(`.val[data-field="rest"][data-i="${i}"]`)?.textContent || '';
+    const nx = document.querySelector(`.val[data-field="next"][data-i="${i}"]`)?.textContent || '';
+    lines.push([i, fin, w, r, nx]);
+  }
+  const csv = lines.map(row=> row.map(cell=> `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'upclock-intervals-mobile-v6.2.csv'; a.click();
+};
+
+// ====== Persistence ======
+const STORE_KEY = 'upclock.tracker.v6.2.mobile';
+function persistState(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const fin = [];
+  for(let i=1;i<=n;i++){
+    fin.push({mm: mm(i)?.value || '', ss: ss(i)?.value || ''});
+  }
+  const state = { rounds: n, ratio: $ratio.value, startOffset: $startOffset.value, finishes: fin, lastSpot: lastSpotlightIndex, collapsed: $scorebar.classList.contains('collapsed') };
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+}
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    if(s.rounds) $rounds.value = s.rounds;
+    if(s.ratio) $ratio.value = s.ratio;
+    if(s.startOffset) $startOffset.value = s.startOffset;
+    buildList();
+    if(Array.isArray(s.finishes)){
+      s.finishes.forEach((v, i)=>{
+        const m = mm(i+1), ssx = ss(i+1);
+        if(m && v && typeof v.mm === 'string') m.value = v.mm;
+        if(ssx && v && typeof v.ss === 'string') ssx.value = v.ss;
+      });
+    }
+    if(s.collapsed){ $scorebar.classList.add('collapsed'); $toggleBtn.setAttribute('aria-expanded','false'); $toggleText.textContent='Show'; }
+    else { $scorebar.classList.remove('collapsed'); $toggleBtn.setAttribute('aria-expanded','true'); $toggleText.textContent='Hide'; }
+    recalc();
+    if(s.lastSpot) spotlight(s.lastSpot);
+  }catch(e){ buildList(); recalc(); }
+}
+
+// Toggle bottom bar
+$toggleBtn.addEventListener('click', ()=>{
+  const willCollapse = !$scorebar.classList.contains('collapsed') ;
+  $scorebar.classList.toggle('collapsed');
+  $toggleBtn.setAttribute('aria-expanded', willCollapse ? 'false' : 'true');
+  $toggleText.textContent = willCollapse ? 'Show' : 'Hide';
+  persistState();
+});
+
+// Init
+loadState();
+</script>
+</body>
+</html>
