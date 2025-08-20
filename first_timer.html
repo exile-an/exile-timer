@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Up-Clock Interval Tracker — Scoreboard Edition (MM/SS)</title>
+<style>
+:root{
+  --bg:#0b0d10; --panel:#12151b; --line:#222837;
+  --text:#e7ebf2; --muted:#9aa6bd; --accent:#ffd166; --good:#2bd39e; --warn:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:linear-gradient(180deg,#090b0e,#0b0d10 50%,#090b0e);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+header{position:sticky;top:0;z-index:20;background:rgba(11,13,16,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0}
+.badge{padding:2px 8px;border-radius:999px;background:#0e1218;border:1px solid #263042;color:#b9c5da;font-size:12px}
+.small{font-size:12px;color:var(--muted)}
+main{max-width:1200px;margin:16px auto;padding:0 16px;display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+@media (max-width:1060px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+label{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+input,select,button{border:1px solid #263042;background:#0e1218;color:var(--text);padding:10px 12px;border-radius:10px;font-size:14px}
+input[type="number"]{width:96px}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#111;border-color:#b7923a}
+button.ghost{background:transparent}
+.kbd{font-family:ui-monospace,Menlo,Consolas,monospace;padding:.2em .45em;border:1px solid #263042;border-bottom-width:2px;border-radius:6px;background:#0b0f15;color:#cfd6e6;font-size:12px}
+.stopwatch{display:flex;align-items:center;gap:12px}
+.clock{font-variant-numeric:tabular-nums;font-size:44px;font-weight:800;letter-spacing:.5px}
+.table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.table th{font-size:12px;color:var(--muted);font-weight:600;text-align:left;padding:0 8px 6px}
+.table td{padding:8px}
+.rowcard{background:#0d1218;border:1px solid #263042;border-radius:12px}
+.right{text-align:right}
+.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+.sum .card{background:#0d1218;border:1px solid #263042;border-radius:12px;padding:10px}
+.sum .val{font-variant-numeric:tabular-nums;font-size:18px;font-weight:700}
+
+/* Scoreboard */
+.scorebar{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;margin-bottom:10px}
+.scorecard{
+  background: radial-gradient(900px 300px at 50% -20%, rgba(255,209,102,.12), transparent 70%);
+  border:1px solid #2a3142;border-radius:14px;padding:14px;
+  display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;
+}
+.score-round{font-size:14px;color:#9aa6bd;text-transform:uppercase;letter-spacing:.3px}
+.score-value{font-variant-numeric:tabular-nums; font-size: clamp(40px, 6.6vw, 72px); font-weight: 900; line-height:1; letter-spacing:.5px}
+.score-sub{display:flex;gap:12px;flex-wrap:wrap;color:#b9c5da}
+.sub-pill{padding:6px 10px;border-radius:999px;background:#0d1218;border:1px solid #263042}
+.toggle{display:flex;align-items:center;gap:8px}
+.switch{appearance:none;width:46px;height:26px;border-radius:999px;background:#1a2030;border:1px solid #2a3142;position:relative;outline:none;cursor:pointer}
+.switch:checked{background:#24324e}
+.switch:before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#cfd6e6;transition:transform .15s ease}
+.switch:checked:before{transform:translateX(20px)}
+.copy-btn{border:1px dashed #324059}
+.fullscreen-btn{border:1px dashed #324059}
+
+/* Finish mm:ss inputs */
+.mmpair{display:flex;gap:6px;align-items:center}
+.mminput{width:64px;text-align:center;font-variant-numeric:tabular-nums}
+.sep{color:#63708a}
+</style>
+</head>
+<body>
+<header>
+  <h1>Up-Clock Interval Tracker</h1>
+  <span class="badge">Scoreboard Edition</span>
+  <span class="small">Now with separate MM and SS finish inputs.</span>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="scorebar">
+      <div class="scorecard">
+        <div>
+          <div id="scoreRound" class="score-round">Round —</div>
+          <div id="scoreValue" class="score-value">00:00</div>
+          <div class="score-sub">
+            <span class="sub-pill">Next start: <b id="scoreNext">--:--</b></span>
+            <span class="sub-pill">Finish: <b id="scoreFinish">--:--</b></span>
+            <span class="sub-pill">Ratio: <b id="scoreRatio">1:1</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="toggle">
+        <label for="autoSpot" class="small">Auto‑spotlight latest</label>
+        <input id="autoSpot" type="checkbox" class="switch" checked />
+      </div>
+      <div class="row">
+        <button id="copyScore" class="copy-btn">Copy score</button>
+        <button id="fullscreenScore" class="fullscreen-btn">Fullscreen</button>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <div class="row">
+          <label>Rounds</label>
+          <input id="rounds" type="number" min="1" value="8"/>
+        </div>
+        <div class="row">
+          <label>Work:Rest Ratio</label>
+          <select id="ratio">
+            <option value="1:1">1:1</option>
+            <option value="1:2">1:2</option>
+            <option value="2:1">2:1</option>
+            <option value="3:1">3:1</option>
+            <option value="1:3">1:3</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Start offset (mm:ss)</label>
+          <input id="startOffset" type="text" placeholder="00:00" value="00:00" />
+        </div>
+      </div>
+      <div class="controls">
+        <button id="makeRows" class="primary">Apply</button>
+        <button id="clear" class="ghost">Clear</button>
+        <button id="exportCsv" class="ghost">Export CSV</button>
+      </div>
+    </div>
+
+    <div style="margin-top:10px" class="stopwatch">
+      <span class="small">Helper stopwatch:</span>
+      <span id="sw" class="clock">00:00</span>
+      <button id="swStart" class="primary">Start</button>
+      <button id="swLap">Stamp “Now” into next Finish</button>
+      <button id="swReset" class="ghost">Reset</button>
+      <span class="small">Shortcuts: <span class="kbd">Space</span> = Start/Pause, <span class="kbd">L</span> = Stamp Now, <span class="kbd">S</span> = Fullscreen</span>
+    </div>
+
+    <table class="table" style="margin-top:12px">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Finish (MM / SS)</th>
+          <th>Score</th>
+          <th>Prescribed Rest</th>
+          <th>Next Start (class clock)</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <div class="sum">
+      <div class="card">
+        <div class="small">Total Score</div>
+        <div id="sumWork" class="val">00:00</div>
+      </div>
+      <div class="card">
+        <div class="small">Total Prescribed Rest</div>
+        <div id="sumRest" class="val">00:00</div>
+      </div>
+      <div class="card">
+        <div class="small">Projected Session Time</div>
+        <div id="sumSession" class="val">00:00</div>
+      </div>
+      <div class="card">
+        <div class="small">Avg Score / Round</div>
+        <div id="avgWork" class="val">00:00</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <span class="badge">Tips</span>
+      </div>
+    </div>
+    <ul>
+      <li>Type minutes in <b>MM</b>, seconds in <b>SS</b>. Seconds auto‑clamp to 0–59 and zero‑pad.</li>
+      <li>Click a row to spotlight that round in the scoreboard, or keep auto‑spotlight on.</li>
+      <li>Stopwatch “Stamp Now” fills the next empty MM/SS automatically.</li>
+    </ul>
+  </section>
+</main>
+
+<!-- Fullscreen overlay -->
+<div id="overlay">
+  <div class="overlay-card">
+    <div id="ovTitle" class="overlay-title">Round —</div>
+    <div id="ovScore" class="overlay-score">00:00</div>
+    <div id="ovSub" class="overlay-sub">Next start: --:-- • Finish: --:-- • Ratio: 1:1</div>
+  </div>
+</div>
+
+<footer>Built for coaches who want clean round scores • v1.3.1 (MM/SS, Score labels, SS fix)</footer>
+
+<script>
+// ====== Time utils ======
+const pad = (n)=> String(n).padStart(2,'0');
+function parseClock(str){
+  if(!str) return null;
+  const parts = str.split(':').map(x=>x.trim());
+  if(parts.some(p => p === '' || isNaN(p))) return null;
+  let s = 0;
+  if(parts.length === 1){ s = parseInt(parts[0],10); } 
+  else if(parts.length === 2){ s = parseInt(parts[0],10)*60 + parseInt(parts[1],10); }
+  else if(parts.length >= 3){ s = parseInt(parts[0],10)*3600 + parseInt(parts[1],10)*60 + parseInt(parts[2],10); }
+  return isNaN(s) ? null : s;
+}
+function fmt(sec){
+  if(sec == null || !isFinite(sec)) return '--:--';
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return (h>0? (h+':'+pad(m)+':'+pad(s)) : (pad(m)+':'+pad(s)));
+}
+function mmssToSeconds(mm, ss){
+  const m = parseInt(mm,10); const s = parseInt(ss,10);
+  if(isNaN(m) && isNaN(s)) return null;
+  const M = isNaN(m) ? 0 : Math.max(0,m);
+  const S = isNaN(s) ? 0 : Math.max(0, Math.min(59, s));
+  return M*60 + S;
+}
+
+// ====== Elements ======
+const $rows = document.getElementById('rows');
+const $rounds = document.getElementById('rounds');
+const $ratio = document.getElementById('ratio');
+const $startOffset = document.getElementById('startOffset');
+const $makeRows = document.getElementById('makeRows');
+const $clear = document.getElementById('clear');
+const $exportCsv = document.getElementById('exportCsv');
+const $autoSpot = document.getElementById('autoSpot');
+
+const $scoreRound = document.getElementById('scoreRound');
+const $scoreValue = document.getElementById('scoreValue');
+const $scoreNext = document.getElementById('scoreNext');
+const $scoreFinish = document.getElementById('scoreFinish');
+const $scoreRatio = document.getElementById('scoreRatio');
+
+const $overlay = document.getElementById('overlay');
+const $ovTitle = document.getElementById('ovTitle');
+const $ovScore = document.getElementById('ovScore');
+const $ovSub = document.getElementById('ovSub');
+const $copyScore = document.getElementById('copyScore');
+const $fullscreenScore = document.getElementById('fullscreenScore');
+
+const $sumWork = document.getElementById('sumWork');
+const $sumRest = document.getElementById('sumRest');
+const $sumSession = document.getElementById('sumSession');
+const $avgWork = document.getElementById('avgWork');
+
+// Stopwatch
+let swRunning=false, swStartTs=0, swElapsed=0, swRaf=null;
+const $sw = document.getElementById('sw');
+const $swStart = document.getElementById('swStart');
+const $swLap = document.getElementById('swLap');
+const $swReset = document.getElementById('swReset');
+
+function swRender(){
+  const total = swRunning ? (swElapsed + (performance.now()-swStartTs)/1000) : swElapsed;
+  $sw.textContent = fmt(total);
+  if(swRunning) swRaf = requestAnimationFrame(swRender);
+}
+function swStartPause(){
+  if(!swRunning){ swRunning=true; swStartTs=performance.now(); $swStart.textContent='Pause'; swRender(); }
+  else { swRunning=false; swElapsed += (performance.now()-swStartTs)/1000; $swStart.textContent='Start'; cancelAnimationFrame(swRaf); swRender(); }
+}
+function swResetFn(){ swRunning=false; swElapsed=0; $swStart.textContent='Start'; cancelAnimationFrame(swRaf); swRender(); }
+function swStampNextEmpty(){
+  // Fill next row where both mm and ss are empty
+  const pairs = $rows.querySelectorAll('.mmpair');
+  for(const pair of pairs){
+    const mm = pair.querySelector('input[data-field="mm"]');
+    const ss = pair.querySelector('input[data-field="ss"]');
+    if(mm && ss && !mm.value.trim() && !ss.value.trim()){
+      // parse stopwatch text into seconds
+      const t = $sw.textContent;
+      const secTotal = parseClock(t);
+      const m = Math.floor((secTotal||0)/60);
+      const s = (secTotal||0)%60;
+      mm.value = String(m);
+      ss.value = pad(s);
+      recalc();
+      return;
+    }
+  }
+}
+$swStart.onclick = swStartPause;
+$swLap.onclick = swStampNextEmpty;
+$swReset.onclick = swResetFn;
+window.addEventListener('keydown', (e)=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+  if(e.code==='Space'){ e.preventDefault(); swStartPause(); }
+  if(e.key==='l' || e.key==='L'){ swStampNextEmpty(); }
+  if(e.key==='s' || e.key==='S'){ toggleFullscreenOverlay(); }
+});
+
+function ratioToNumbers(str){
+  const [w,r] = str.split(':').map(x=>parseInt(x,10));
+  return {w: (isNaN(w)?1:w), r: (isNaN(r)?1:r)};
+}
+
+// ====== Table ======
+let lastSpotlightIndex = null; // which round is shown in the scoreboard
+
+function mm(i){ return $rows.querySelector(`input[data-field="mm"][data-i="${i}"]`); }
+function ss(i){ return $rows.querySelector(`input[data-field="ss"][data-i="${i}"]`); }
+
+function buildRows(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  $rows.innerHTML = '';
+  for(let i=1;i<=n;i++){
+    const tr = document.createElement('tr');
+    tr.className = 'rowcard';
+    tr.innerHTML = `
+      <td class="right">#${i}</td>
+      <td>
+        <div class="mmpair">
+          <input class="mminput" inputmode="numeric" pattern="\\d*" maxlength="3" placeholder="MM" data-field="mm" data-i="${i}" />
+          <span class="sep">:</span>
+          <input class="mminput" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="SS" data-field="ss" data-i="${i}" />
+        </div>
+      </td>
+      <td><span data-field="work" data-i="${i}">--:--</span></td>
+      <td><span data-field="rest" data-i="${i}">--:--</span></td>
+      <td><span data-field="next" data-i="${i}">--:--</span></td>
+    `;
+    tr.addEventListener('click', ()=>{ spotlight(i); });
+    $rows.appendChild(tr);
+  }
+  // attach input events
+  $rows.querySelectorAll('input[data-field="mm"]').forEach(inp=>{
+    inp.addEventListener('input', onMMInput);
+    inp.addEventListener('keydown', onMMKey);
+  });
+  $rows.querySelectorAll('input[data-field="ss"]').forEach(inp=>{
+    inp.addEventListener('input', onSSInput);
+    inp.addEventListener('keydown', onSSKey);
+    inp.addEventListener('blur', ()=> padSecondsOnBlur(inp));
+  });
+
+  persistState();
+}
+
+function clampSecondsRaw(input){
+  // Keep only digits, clamp length to 2, but DO NOT pad here
+  let v = input.value.replace(/\D/g,'').slice(0,2);
+  input.value = v;
+  return v.length;
+}
+function padSecondsOnBlur(input){
+  if(input.value === '') return;
+  let num = parseInt(input.value,10);
+  if(isNaN(num)) { input.value = ''; return; }
+  num = Math.max(0, Math.min(59, num));
+  input.value = pad(num);
+}
+
+function onMMInput(e){
+  e.target.value = e.target.value.replace(/\D/g,'');
+  // auto-advance when length >= 2 (common for minutes <100)
+  if(e.target.value.length >= 2){
+    const i = parseInt(e.target.dataset.i,10);
+    ss(i)?.focus();
+    ss(i)?.select();
+  }
+  recalc();
+}
+function onMMKey(e){
+  if(e.key === ':' || e.key === 'Enter' || e.key === 'ArrowRight'){
+    const i = parseInt(e.target.dataset.i,10);
+    ss(i)?.focus(); ss(i)?.select(); e.preventDefault();
+  }
+}
+function onSSInput(e){
+  const len = clampSecondsRaw(e.target);
+  if(len === 2){
+    const i = parseInt(e.target.dataset.i,10);
+    const nextMM = mm(i+1);
+    if(nextMM){ nextMM.focus(); nextMM.select(); }
+  }
+  recalc();
+}
+function onSSKey(e){
+  if(e.key === 'ArrowLeft'){
+    const i = parseInt(e.target.dataset.i,10);
+    mm(i)?.focus(); mm(i)?.select(); e.preventDefault();
+  }
+  if(e.key === 'Enter'){
+    const i = parseInt(e.target.dataset.i,10);
+    const nextMM = mm(i+1);
+    if(nextMM){ nextMM.focus(); nextMM.select(); }
+  }
+}
+
+function recalc(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const startOffsetSec = parseClock($startOffset.value) ?? 0;
+  const {w:wr, r:rr} = ratioToNumbers($ratio.value);
+
+  let sumWork=0, sumRest=0, sessionEnd=0;
+  let curStart = startOffsetSec;
+  let latestCompleted = null;
+
+  for(let i=1;i<=n;i++){
+    const mmVal = mm(i)?.value;
+    const ssVal = ss(i)?.value;
+    const workEl = $rows.querySelector(`span[data-field="work"][data-i="${i}"]`);
+    const restEl = $rows.querySelector(`span[data-field="rest"][data-i="${i}"]`);
+    const nextEl = $rows.querySelector(`span[data-field="next"][data-i="${i}"]`);
+
+    const finish = mmssToSeconds(mmVal, ssVal);
+    let work=null, rest=null, next=null;
+
+    // A finish is considered valid only if at least one field has a numeric value (not both empty)
+    const hasSome = (mmVal && mmVal.trim()!=='') || (ssVal && ssVal.trim()!=='');
+
+    if(hasSome && finish!=null && finish>=curStart){
+      work = finish - curStart;
+      const ratio = rr / wr;
+      rest = Math.max(0, work * ratio);
+      next = finish + rest;
+      sumWork += work;
+      sumRest += rest;
+      sessionEnd = Math.max(sessionEnd, next);
+      curStart = next;
+      latestCompleted = {i, work, next, finish};
+    }
+
+    workEl.textContent = fmt(work);
+    restEl.textContent = fmt(rest);
+    nextEl.textContent = fmt(next);
+  }
+
+  // Summary
+  $sumWork.textContent = fmt(sumWork);
+  $sumRest.textContent = fmt(sumRest);
+  $sumSession.textContent = fmt(sessionEnd);
+  const completed = Array.from($rows.querySelectorAll('span[data-field="work"]')).filter(s=>s.textContent!=='--:--').length;
+  $avgWork.textContent = completed ? fmt(sumWork/Math.max(1,completed)) : '00:00';
+
+  updateRowHints();
+
+  // Auto-spotlight
+  if($autoSpot.checked && latestCompleted){
+    spotlight(latestCompleted.i, latestCompleted);
+  }else if(lastSpotlightIndex==null){
+    const firstStart = startOffsetSec;
+    $scoreRound.textContent = 'Round 1';
+    $scoreValue.textContent = '00:00';
+    $scoreNext.textContent = fmt(firstStart);
+    $scoreFinish.textContent = '--:--';
+    $scoreRatio.textContent = $ratio.value;
+  }
+
+  persistState();
+}
+
+function updateRowHints(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const startOffsetSec = parseClock($startOffset.value) ?? 0;
+  const {w:wr, r:rr} = ratioToNumbers($ratio.value);
+  let curStart = startOffsetSec;
+
+  for(let i=1;i<=n;i++){
+    const mmInp = mm(i);
+    const ssInp = ss(i);
+    const fin = mmssToSeconds(mmInp?.value, ssInp?.value);
+    if(fin!=null && fin>=curStart){
+      const work = fin - curStart;
+      const rest = Math.max(0, work * (rr/wr));
+      curStart = fin + rest; // next start
+    }else{
+      if(mmInp && ssInp && (!mmInp.value && !ssInp.value)){
+        const m = Math.floor(curStart/60), s = curStart%60;
+        mmInp.placeholder = String(m);
+        ssInp.placeholder = pad(s);
+      }
+    }
+  }
+}
+
+// Spotlight logic
+function spotlight(i){
+  lastSpotlightIndex = i;
+  const mmVal = mm(i)?.value || '0';
+  const ssVal = ss(i)?.value || '00';
+  const finishSec = mmssToSeconds(mmVal, ssVal);
+  const workTxt = $rows.querySelector(`span[data-field="work"][data-i="${i}"]`)?.textContent || '00:00';
+  const nextTxt = $rows.querySelector(`span[data-field="next"][data-i="${i}"]`)?.textContent || '--:--';
+  const finTxt  = (finishSec==null) ? '--:--' : fmt(finishSec);
+  $scoreRound.textContent = `Round ${i}`;
+  $scoreValue.textContent = workTxt;
+  $scoreNext.textContent = nextTxt;
+  $scoreFinish.textContent = finTxt;
+  $scoreRatio.textContent = $ratio.value;
+
+  if($overlay.classList.contains('active')){
+    $ovTitle.textContent = `Round ${i}`;
+    $ovScore.textContent = workTxt;
+    $ovSub.textContent = `Next start: ${nextTxt} • Finish: ${finTxt} • Ratio: ${$ratio.value}`;
+  }
+}
+
+// Events
+$makeRows.onclick = ()=>{ buildRows(); recalc(); };
+$clear.onclick = ()=>{
+  $rows.querySelectorAll('input[data-field="mm"], input[data-field="ss"]').forEach(i=> i.value='');
+  recalc();
+};
+$exportCsv.onclick = ()=>{
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const lines = [['Round','Finish','Work','Prescribed Rest','Next Start']];
+  for(let i=1;i<=n;i++){
+    const m = mm(i)?.value || '';
+    const s = ss(i)?.value || '';
+    const finSec = mmssToSeconds(m,s);
+    const fin = finSec==null ? '' : fmt(finSec);
+    const w = $rows.querySelector(`span[data-field="work"][data-i="${i}"]`)?.textContent || '';
+    const r = $rows.querySelector(`span[data-field="rest"][data-i="${i}"]`)?.textContent || '';
+    const nx = $rows.querySelector(`span[data-field="next"][data-i="${i}"]`)?.textContent || '';
+    lines.push([i, fin, w, r, nx]);
+  }
+  const csv = lines.map(row=> row.map(cell=> `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'upclock-intervals.csv';
+  a.click();
+};
+
+// Copy + Fullscreen
+$copyScore.onclick = async ()=>{
+  const text = $scoreValue.textContent.trim();
+  try{
+    await navigator.clipboard.writeText(text);
+    $copyScore.textContent = 'Copied!';
+    setTimeout(()=> $copyScore.textContent = 'Copy score', 1200);
+  }catch(e){
+    $copyScore.textContent = 'Press Ctrl/Cmd+C';
+    setTimeout(()=> $copyScore.textContent = 'Copy score', 1500);
+  }
+};
+function toggleFullscreenOverlay(){
+  const open = $overlay.classList.contains('active');
+  if(open){
+    $overlay.classList.remove('active');
+    if(document.fullscreenElement) document.exitFullscreen?.();
+  }else{
+    $overlay.classList.add('active');
+    $overlay.requestFullscreen?.();
+    // seed with current score
+    $ovTitle.textContent = $scoreRound.textContent;
+    $ovScore.textContent = $scoreValue.textContent;
+    $ovSub.textContent = `Next start: ${$scoreNext.textContent} • Finish: ${$scoreFinish.textContent} • Ratio: ${$scoreRatio.textContent}`;
+  }
+}
+$fullscreenScore.onclick = toggleFullscreenOverlay;
+$overlay.addEventListener('click', toggleFullscreenOverlay);
+
+// ====== Persistence ======
+const STORE_KEY = 'upclock.tracker.v1.scoreboard.mmss';
+function persistState(){
+  const n = Math.max(1, parseInt($rounds.value||1,10));
+  const fin = [];
+  for(let i=1;i<=n;i++){
+    fin.push({mm: mm(i)?.value || '', ss: ss(i)?.value || ''});
+  }
+  const state = {
+    rounds: n,
+    ratio: $ratio.value,
+    startOffset: $startOffset.value,
+    finishes: fin,
+    autoSpot: $autoSpot.checked,
+    lastSpot: lastSpotlightIndex
+  };
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+}
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    if(s.rounds) $rounds.value = s.rounds;
+    if(s.ratio) $ratio.value = s.ratio;
+    if(s.startOffset) $startOffset.value = s.startOffset;
+    if(typeof s.autoSpot === 'boolean') $autoSpot.checked = s.autoSpot;
+    buildRows();
+    if(Array.isArray(s.finishes)){
+      s.finishes.forEach((v, i)=>{
+        const m = mm(i+1), ssx = ss(i+1);
+        if(m && v && typeof v.mm === 'string') m.value = v.mm;
+        if(ssx && v && typeof v.ss === 'string') ssx.value = v.ss;
+      });
+    }
+    recalc();
+    if(s.lastSpot) spotlight(s.lastSpot);
+  }catch(e){ buildRows(); recalc(); }
+}
+
+// Init
+loadState();
+swRender();
+</script>
+</body>
+</html>
