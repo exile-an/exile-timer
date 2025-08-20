@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interval Tracker - Compact Mobile</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #eee;
+    }
+    .container {
+      padding: 10px;
+    }
+    .round-card {
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+    .round-header {
+      font-size: 0.9em;
+      margin-bottom: 6px;
+      color: #ccc;
+    }
+    .inputs {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 6px;
+    }
+    .inputs input {
+      width: 50px;
+      padding: 5px;
+      font-size: 1em;
+      text-align: center;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #222;
+      color: #fff;
+    }
+    .outputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 6px;
+    }
+    .box {
+      background: #2a2a2a;
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.85em;
+    }
+    .sticky-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #000;
+      border-top: 2px solid #444;
+      max-height: 40%;
+      overflow-y: auto;
+      transition: transform 0.3s;
+    }
+    .footer-header {
+      background: #222;
+      text-align: center;
+      padding: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .collapsed {
+      transform: translateY(85%);
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="rounds-container"></div>
+
+  <div class="sticky-footer collapsed" id="scoreboard">
+    <div class="footer-header" onclick="toggleFooter()">▲ Show/Hide Scoreboard</div>
+    <div id="scoreboard-content"></div>
+  </div>
+
+  <script>
+    const numRounds = 8;
+    const container = document.getElementById("rounds-container");
+    const scoreboardContent = document.getElementById("scoreboard-content");
+
+    for (let i = 1; i <= numRounds; i++) {
+      const card = document.createElement("div");
+      card.className = "round-card";
+      card.innerHTML = `
+        <div class="round-header">Round ${i}</div>
+        <div class="inputs">
+          <input type="number" min="0" max="59" placeholder="MM" id="mm-${i}">
+          :
+          <input type="number" min="0" max="59" placeholder="SS" id="ss-${i}">
+        </div>
+        <div class="outputs">
+          <div class="box" id="score-${i}">Score: --</div>
+          <div class="box" id="rest-${i}">Prescribed Rest: --</div>
+          <div class="box" id="next-${i}">Next Start: --</div>
+        </div>
+      `;
+      container.appendChild(card);
+    }
+
+    function toggleFooter() {
+      document.getElementById("scoreboard").classList.toggle("collapsed");
+    }
+  </script>
+</body>
+</html>
